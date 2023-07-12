@@ -14,6 +14,7 @@ class CNNModel(nn.Module):
             nn.ReLU(),
             nn.MaxPool2d(kernel_size=2, stride=2)
         )
+        #FC layers are missing
 
     def forward(self, x):
         return self.cnn_network(x)
