@@ -15,6 +15,10 @@ class CNNModel(nn.Module):
             nn.MaxPool2d(kernel_size=2, stride=2)
         )
         #FC layers are missing
+        #useful layers for future model building
+        self.dropout = nn.Dropout(0.2)
+        self.sigmoid = nn.Sigmoid()
+        self.flatten = nn.Flatten()
 
     def forward(self, x):
         return self.cnn_network(x)
