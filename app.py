@@ -10,7 +10,7 @@ def main():
     print("Hello world")
     st.set_page_config(page_title="X-Ray Anomalert")
     st.header("X-Ray Anomalert")
-    st.text_input("Let's analyze your Chest X-Ray")
+    #st.text_input("Let's analyze your Chest X-Ray")
 
     with st.sidebar:
         st.subheader("Your X-Rays")
