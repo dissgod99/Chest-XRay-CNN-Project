@@ -26,6 +26,16 @@ IMAGE_SCREEN_PERCENTAGE = 1/IMAGES_PER_ROW*100
 IMAGE_SIZE=180
 UPLOAD_FOLDER = "uploaded_images"
 
+def empty_folder(folder_path):
+    for filename in os.listdir(folder_path):
+        file_path = os.path.join(folder_path, filename)
+        if os.path.isfile(file_path):
+            os.remove(file_path)
+        elif os.path.isdir(file_path):
+            # Recursively remove subdirectories and their contents
+            empty_folder(file_path)
+            os.rmdir(file_path)
+
 
 def predict_image(model, image):
     #Part1: Preprocessing
@@ -62,6 +72,7 @@ def main():
     st.header("X-Ray Anomalert")
     #st.text_input("Let's analyze your Chest X-Ray")
     
+
     if not os.path.exists(UPLOAD_FOLDER):
         os.makedirs(UPLOAD_FOLDER)
     with st.sidebar:
@@ -84,19 +95,19 @@ def main():
                 row_html = '<div style="display: flex; ">'
                 for file in row_files:
                     # Save the uploaded file to the folder
-                    file_path = os.path.join(UPLOAD_FOLDER+"/", file.name)
+                    file_path = os.path.join(UPLOAD_FOLDER, file.name)
                     with open(file_path, "wb") as f:
                         f.write(file.read())
                     # You can perform further processing on each uploaded file here
-                    img = cv2.imread(UPLOAD_FOLDER+"/"+file.name)
+                    img = cv2.imread(file_path)
                     image_to_pred = cv2.resize(img, (IMAGE_SIZE, IMAGE_SIZE))
                     image_to_pred = Image.fromarray(cv2.cvtColor(image_to_pred, cv2.COLOR_BGR2RGB))
-                    """image_to_pred = Image.open(file)
-                    if image_to_pred.mode != 'RGB':
-                        image_to_pred = image_to_pred.convert('RGB')"""
+                    
                     #print(image_to_pred.size())
-                    predicted_prob = predict_image(model=model, image=image_to_pred)
-                    image_data = file.read()
+                    #predicted_prob = predict_image(model=model, image=image_to_pred)
+                    # Convert the image to base64
+                    with open(file_path, "rb") as f:
+                        image_data = f.read()
                     image_base64 = base64.b64encode(image_data).decode("utf-8")
                 
                     # Use the base64 image data in the img tag
@@ -111,4 +122,6 @@ def main():
             st.write("No X-Rays uploaded.")
 
 if __name__ == "__main__":
+    empty_folder(UPLOAD_FOLDER)
     main()
+    
