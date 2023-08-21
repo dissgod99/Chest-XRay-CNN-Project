@@ -123,17 +123,21 @@ def main():
                     #print(image_to_pred.size())
                     prediction, label, probability_majority_class = predict_image(model=model, image_rgb=image_rgb_to_pred)
                     print(f"({i}) Label: {label}, Probability: {probability_majority_class:.2f}%")
-                    #print(predicted_prob)
+                    
                     # Convert the image to base64
                     with open(file_path, "rb") as f:
                         image_data = f.read()
                     image_base64 = base64.b64encode(image_data).decode("utf-8")
-                    row_html += f'<div>Prediction: {label}</div>'
-                    row_html += f'<div>Probability: {probability_majority_class:.2f}%</div>'
-                    # Use the base64 image data in the img tag
-                    row_html += f'<img src="data:image/png;base64,{image_base64}" alt="Prediction: {label}: {probability_majority_class:.2f}%" width="{IMAGE_SCREEN_PERCENTAGE}%" style="margin: 5px;">'
-                    # Add text under the image
-                    #row_html += f'<p>X-Ray [{i+1}]</p>'  # Change the description accordingly
+
+                    # Create a container div for each image and its prediction
+                    row_html += f'<div style="display: inline-block; width: {IMAGE_SCREEN_PERCENTAGE}%; text-align: center; margin: 5px;">'
+
+                    # Add the image with the corresponding prediction and label
+                    row_html += f'<img src="data:image/png;base64,{image_base64}" alt="Prediction: {label}: {probability_majority_class*100:.2f}%" style="width: 100%;">'
+                    row_html += f'<p style="font-size: 12px; margin-top: 5px;">{probability_majority_class*100:.2f}% {label}</p>'
+
+                    # Close the container div
+                    row_html += '</div>'
                 row_html += '</div>'
                 
                 # Display the row
