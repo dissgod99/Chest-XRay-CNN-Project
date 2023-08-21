@@ -18,7 +18,8 @@ import torchvision.transforms as transforms
 from torch.utils.data import Dataset, DataLoader
 from PIL import Image
 from io import BytesIO
-
+from CustomCNN import CNNModel
+import numpy as np
 
 ALLOWED_FILE_TYPES = ["png", "jpg", "jpeg"]
 IMAGES_PER_ROW = 3
@@ -37,7 +38,7 @@ def empty_folder(folder_path):
             os.rmdir(file_path)
 
 
-def predict_image(model, image):
+def predict_image(model, image_rgb):
     #Part1: Preprocessing
     image_tensor=transforms.Compose([
         transforms.RandomRotation(30),  # Randomly rotate images in the range (degrees, 0 to 180)
@@ -50,23 +51,39 @@ def predict_image(model, image):
         transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])  # Normalize the image
     ])
     #image is the result of Image.open(file)
-    transformed_image = image_tensor(image)
+    transformed_image = image_tensor(image_rgb)
+    #Add one dimension to use the image in the model with batch size 1
+    transformed_image = transformed_image[np.newaxis, :]
 
     # Make prediction
     with torch.no_grad():
         outputs = model(transformed_image)
         softmax = nn.Softmax(dim=1)
         softmax_outputs = softmax(outputs)
-        print(softmax_outputs)
+        #print(softmax_outputs)
+        #_, prediction = torch.max(softmax_outputs, 1)
+        #softmax = nn.Softmax(dim=1)
+        #softmax_outputs = softmax(prob)
+        #print(softmax_outputs)
         _, prediction = torch.max(softmax_outputs, 1)
-        #predicted_prob = torch.sigmoid(outputs).item()
+        if prediction.item() == 0:
+            label = "NORMAL"
+        else:
+            label = "PNEUMONIA"
+        probability_majority_class = softmax_outputs.squeeze(0)[torch.argmax(softmax_outputs)].item()
     
-    return prediction
+    return prediction.item(), label, probability_majority_class
 
 
 
 def main():
-    model = torch.load("trained_model_32_resize_moreTransformations_acc82.pth")
+    #model = torch.load("trained_model_32_resize_moreTransformations_acc82.pth")
+    model = CNNModel(num_classes=2)
+
+    # Load the trained parameters into the model
+    model.load_state_dict(torch.load('trained_model_32_resize_moreTransformations_acc82.pth'))
+    model.eval()  # Set the model to evaluation mode
+    
     print("Model Successfully Loaded!")
     st.set_page_config(page_title="X-Ray Anomalert")
     st.header("X-Ray Anomalert")
@@ -93,25 +110,28 @@ def main():
                 
                 # Create a row using HTML and CSS styling
                 row_html = '<div style="display: flex; ">'
-                for file in row_files:
+                for idx, file in enumerate(row_files):
                     # Save the uploaded file to the folder
                     file_path = os.path.join(UPLOAD_FOLDER, file.name)
                     with open(file_path, "wb") as f:
                         f.write(file.read())
                     # You can perform further processing on each uploaded file here
                     img = cv2.imread(file_path)
-                    image_to_pred = cv2.resize(img, (IMAGE_SIZE, IMAGE_SIZE))
-                    image_to_pred = Image.fromarray(cv2.cvtColor(image_to_pred, cv2.COLOR_BGR2RGB))
+                    image_resized = cv2.resize(img, (IMAGE_SIZE, IMAGE_SIZE))
+                    image_rgb_to_pred = Image.fromarray(cv2.cvtColor(image_resized, cv2.COLOR_BGR2RGB))
                     
                     #print(image_to_pred.size())
-                    #predicted_prob = predict_image(model=model, image=image_to_pred)
+                    prediction, label, probability_majority_class = predict_image(model=model, image_rgb=image_rgb_to_pred)
+                    print(f"({i}) Label: {label}, Probability: {probability_majority_class:.2f}%")
+                    #print(predicted_prob)
                     # Convert the image to base64
                     with open(file_path, "rb") as f:
                         image_data = f.read()
                     image_base64 = base64.b64encode(image_data).decode("utf-8")
-                
+                    row_html += f'<div>Prediction: {label}</div>'
+                    row_html += f'<div>Probability: {probability_majority_class:.2f}%</div>'
                     # Use the base64 image data in the img tag
-                    row_html += f'<img src="data:image/png;base64,{image_base64}" alt="Prediction: {55.58964:.2f}" width="{IMAGE_SCREEN_PERCENTAGE}%" style="margin: 5px;">'
+                    row_html += f'<img src="data:image/png;base64,{image_base64}" alt="Prediction: {label}: {probability_majority_class:.2f}%" width="{IMAGE_SCREEN_PERCENTAGE}%" style="margin: 5px;">'
                     # Add text under the image
                     #row_html += f'<p>X-Ray [{i+1}]</p>'  # Change the description accordingly
                 row_html += '</div>'
