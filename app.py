@@ -23,7 +23,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 ALLOWED_FILE_TYPES = ["png", "jpg", "jpeg"]
-IMAGES_PER_ROW = 2
+IMAGES_PER_ROW = 4
 IMAGE_SCREEN_PERCENTAGE = 1/IMAGES_PER_ROW*100
 IMAGE_SIZE=180
 UPLOAD_FOLDER = "uploaded_images"
@@ -172,6 +172,7 @@ def main():
                     
 
                     saliency_value = calculate_saliency(model=model, img_path=file_path, filename=file.name[:-5])
+                    file_path_saliency = os.path.join(SALIENCY_FOLDER, file.name[:-5]+"_saliency_plot.jpeg")
 
                     #print(image_to_pred.size())
                     prediction, label, probability_majority_class = predict_image(model=model, image_rgb=image_rgb_to_pred)
@@ -183,13 +184,19 @@ def main():
                     with open(file_path, "rb") as f:
                         image_data = f.read()
                     image_base64 = base64.b64encode(image_data).decode("utf-8")
+
+                    # Convert the image to base64
+                    with open(file_path_saliency, "rb") as f_saliency:
+                        image_data_saliency = f_saliency.read()
+                    image_base64_saliency = base64.b64encode(image_data_saliency).decode("utf-8")
                     
 
                     # Create a container div for each image and its prediction
                     row_html += f'<div style="display: inline-block; width: {IMAGE_SCREEN_PERCENTAGE}%; text-align: center; margin: 5px;">'
 
                     # Add the image with the corresponding prediction and label
-                    row_html += f'<img src="data:image/png;base64,{image_base64}" alt="Prediction: {label}: {probability_majority_class*100:.2f}%" style="width: 100%;">'
+                    row_html += f'<img src="data:image/png;base64,{image_base64}" alt="Prediction: {label}: {probability_majority_class*100:.2f}%" style="width: 100%; margin: 5px">'
+                    row_html += f'<img src="data:image/png;base64,{image_base64_saliency}" alt="Saliency Map" style="width: 100%;">'
                     row_html += f'<p style="font-size: 12px; margin-top: 5px;">{probability_majority_class*100:.2f}% {label}</p>'
 
                     # Close the container div
