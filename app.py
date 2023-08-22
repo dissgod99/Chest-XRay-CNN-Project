@@ -26,6 +26,7 @@ IMAGES_PER_ROW = 3
 IMAGE_SCREEN_PERCENTAGE = 1/IMAGES_PER_ROW*100
 IMAGE_SIZE=180
 UPLOAD_FOLDER = "uploaded_images"
+SALIENCY_FOLDER = "saliency_images"
 
 def empty_folder(folder_path):
     for filename in os.listdir(folder_path):
@@ -74,6 +75,43 @@ def predict_image(model, image_rgb):
     
     return prediction.item(), label, probability_majority_class
 
+#Code based on the following article: 
+#https://medium.datadriveninvestor.com/visualizing-neural-networks-using-saliency-maps-in-pytorch-289d8e244ab4
+def calculate_saliency(model, img_path: str):
+
+    image_tensor=transforms.Compose([
+        transforms.RandomRotation(30),  # Randomly rotate images in the range (degrees, 0 to 180)
+        transforms.RandomHorizontalFlip(),  # Randomly flip images horizontally
+        transforms.RandomVerticalFlip(),  # Randomly flip images vertically
+        transforms.Resize(size=(IMAGE_SIZE, IMAGE_SIZE)), #resize image
+        #transforms.RandomResizedCrop(size=(new_size, new_size)),  # Randomly crop and resize images
+        transforms.ColorJitter(brightness=0.4, contrast=0.4, saturation=0.4),  # Randomly adjust brightness, contrast, and saturation
+        transforms.ToTensor(),  # Convert the image to a PyTorch tensor
+        transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])  # Normalize the image
+    ])
+
+
+    img = cv2.imread(img_path)
+    img_resized = cv2.resize(img, (IMAGE_SIZE, IMAGE_SIZE))
+    img_rgb = Image.fromarray(cv2.cvtColor(img_resized, cv2.COLOR_BGR2RGB))
+    transformed_image = image_tensor(img_rgb)
+    image = transformed_image.unsqueeze(0) # Add batch dimension and move to appropriate device
+    image.requires_grad_()
+
+    scores = model(image)
+    # Get the index corresponding to the maximum score and the maximum score itself.
+    score_max_index = scores.argmax()
+    score_max = scores[0,score_max_index]
+    score_max.backward()
+
+    saliency, _ = torch.max(image.grad.data.abs(),dim=1)
+    # code to plot the saliency map as a heatmap
+    """plt.imshow(saliency[0], cmap=plt.cm.hot)
+    plt.axis('off')
+    plt.colorbar()  # Add a colorbar for reference
+    plt.show()"""
+    return saliency[0]
+
 
 
 def main():
@@ -89,9 +127,14 @@ def main():
     st.header("X-Ray Anomalert")
     #st.text_input("Let's analyze your Chest X-Ray")
     
-
+    # Create Image Folder 
     if not os.path.exists(UPLOAD_FOLDER):
         os.makedirs(UPLOAD_FOLDER)
+    
+    # Create Saliency Folder
+    if not os.path.exists(SALIENCY_FOLDER):
+        os.makedirs(SALIENCY_FOLDER)
+
     with st.sidebar:
         st.subheader("Your X-Rays")
         uploaded_files = st.file_uploader("Upload your Chest X-Rays and click on 'Process'",
@@ -120,14 +163,20 @@ def main():
                     image_resized = cv2.resize(img, (IMAGE_SIZE, IMAGE_SIZE))
                     image_rgb_to_pred = Image.fromarray(cv2.cvtColor(image_resized, cv2.COLOR_BGR2RGB))
                     
+
+                    saliency_value = calculate_saliency(model=model, img_path=file_path)
+
                     #print(image_to_pred.size())
                     prediction, label, probability_majority_class = predict_image(model=model, image_rgb=image_rgb_to_pred)
-                    print(f"({i}) Label: {label}, Probability: {probability_majority_class:.2f}%")
+                    # Calculate the saliency map for the current image
+                    #saliency_map = calculate_saliency_map(image_rgb_to_pred, model)
+                    print(f"({i}) Label: {label}, Probability: {probability_majority_class*100:.2f}%")
                     
                     # Convert the image to base64
                     with open(file_path, "rb") as f:
                         image_data = f.read()
                     image_base64 = base64.b64encode(image_data).decode("utf-8")
+                    
 
                     # Create a container div for each image and its prediction
                     row_html += f'<div style="display: inline-block; width: {IMAGE_SCREEN_PERCENTAGE}%; text-align: center; margin: 5px;">'
@@ -142,6 +191,7 @@ def main():
                 
                 # Display the row
                 st.markdown(row_html, unsafe_allow_html=True)
+                
         else:
             st.write("No X-Rays uploaded.")
 
