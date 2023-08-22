@@ -20,9 +20,10 @@ from PIL import Image
 from io import BytesIO
 from CustomCNN import CNNModel
 import numpy as np
+import matplotlib.pyplot as plt
 
 ALLOWED_FILE_TYPES = ["png", "jpg", "jpeg"]
-IMAGES_PER_ROW = 3
+IMAGES_PER_ROW = 2
 IMAGE_SCREEN_PERCENTAGE = 1/IMAGES_PER_ROW*100
 IMAGE_SIZE=180
 UPLOAD_FOLDER = "uploaded_images"
@@ -77,7 +78,7 @@ def predict_image(model, image_rgb):
 
 #Code based on the following article: 
 #https://medium.datadriveninvestor.com/visualizing-neural-networks-using-saliency-maps-in-pytorch-289d8e244ab4
-def calculate_saliency(model, img_path: str):
+def calculate_saliency(model, img_path: str, filename:str):
 
     image_tensor=transforms.Compose([
         transforms.RandomRotation(30),  # Randomly rotate images in the range (degrees, 0 to 180)
@@ -106,10 +107,14 @@ def calculate_saliency(model, img_path: str):
 
     saliency, _ = torch.max(image.grad.data.abs(),dim=1)
     # code to plot the saliency map as a heatmap
-    """plt.imshow(saliency[0], cmap=plt.cm.hot)
+    plt.imshow(saliency[0], cmap=plt.cm.hot)
     plt.axis('off')
-    plt.colorbar()  # Add a colorbar for reference
-    plt.show()"""
+    #plt.colorbar()  # Add a colorbar for reference
+    # Save the plot as a JPEG image
+    heat_name = filename
+    saliency_path = os.path.join('saliency_images', f'{filename}_saliency_plot.jpeg')
+    plt.savefig(saliency_path, format='jpeg', bbox_inches='tight', pad_inches=0.05)
+    
     return saliency[0]
 
 
@@ -156,6 +161,8 @@ def main():
                 for idx, file in enumerate(row_files):
                     # Save the uploaded file to the folder
                     file_path = os.path.join(UPLOAD_FOLDER, file.name)
+                    #print(file.name)
+                    #print(file.name[:-5])
                     with open(file_path, "wb") as f:
                         f.write(file.read())
                     # You can perform further processing on each uploaded file here
@@ -164,7 +171,7 @@ def main():
                     image_rgb_to_pred = Image.fromarray(cv2.cvtColor(image_resized, cv2.COLOR_BGR2RGB))
                     
 
-                    saliency_value = calculate_saliency(model=model, img_path=file_path)
+                    saliency_value = calculate_saliency(model=model, img_path=file_path, filename=file.name[:-5])
 
                     #print(image_to_pred.size())
                     prediction, label, probability_majority_class = predict_image(model=model, image_rgb=image_rgb_to_pred)
@@ -191,11 +198,13 @@ def main():
                 
                 # Display the row
                 st.markdown(row_html, unsafe_allow_html=True)
+                #plt.colorbar()
                 
         else:
             st.write("No X-Rays uploaded.")
 
 if __name__ == "__main__":
     empty_folder(UPLOAD_FOLDER)
+    empty_folder(SALIENCY_FOLDER)
     main()
     
