@@ -118,20 +118,6 @@ def calculate_saliency(model, img_path: str, filename:str):
     return saliency[0]
 
 
-def download_images(output_folder_name:str,
-                    images_path="uploaded_images/", 
-                    saliency_path="saliency_images/",
-                    predictions_images="prediction_images/"):
-    # Create the output folder if it doesn't exist
-    if not os.path.exists(output_folder_name):
-        os.makedirs(output_folder_name)
-    
-    # Iterate through the images in the directory and copy them to the output folder
-    for idx, filename in os.listdir(images_path):
-        pass
-    pass
-
-
 def merge_xray_saliency_prediction(x_ray_filename:str, 
                                    saliency_filename:str, 
                                    prediction_filename:str, 
@@ -197,9 +183,8 @@ def trigger_download():
         merge_xray_saliency_prediction(x_ray_filename=filename,
                                     saliency_filename=os.listdir(SALIENCY_FOLDER)[idx],
                                     prediction_filename=os.listdir(PREDICTION_FOLDER)[idx])
-    create_zip_archive(folder_path="./results")
+    create_zip_archive(folder_path=RESULTS_FOLDER)
     st.write("The Results were <span style='color:green;'>SUCCESSFULLY</span> Downloaded !", unsafe_allow_html=True)
-    uploaded_files=[]
 
 def main():
     #model = torch.load("trained_model_32_resize_moreTransformations_acc82.pth")
@@ -231,8 +216,10 @@ def main():
                          accept_multiple_files=True,
                          type=ALLOWED_FILE_TYPES)
         process_button = st.button("Process")
-        download_button = st.download_button(label="Download All Files", disabled=False if process_button else True,
-                                    on_click=trigger_download, data="results.zip")
+        download_button = st.button(label="Download All Files", disabled=False if process_button else True,
+                                    on_click=trigger_download)
+        if download_button:
+            uploaded_files = []
 
     # Check if the "Process" button is clicked
     if process_button:
@@ -309,5 +296,5 @@ if __name__ == "__main__":
     empty_folder(UPLOAD_FOLDER)
     empty_folder(SALIENCY_FOLDER)
     empty_folder(PREDICTION_FOLDER)
-    #empty_folder(RESULTS_FOLDER)
+    empty_folder(RESULTS_FOLDER)
     main()
