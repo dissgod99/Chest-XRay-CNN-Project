@@ -28,6 +28,7 @@ IMAGE_SCREEN_PERCENTAGE = 1/IMAGES_PER_ROW*100
 IMAGE_SIZE=180
 UPLOAD_FOLDER = "uploaded_images"
 SALIENCY_FOLDER = "saliency_images"
+PREDICTION_FOLDER = "prediction_images"
 
 def empty_folder(folder_path):
     for filename in os.listdir(folder_path):
@@ -118,6 +119,19 @@ def calculate_saliency(model, img_path: str, filename:str):
     return saliency[0]
 
 
+def download_images(directory_path1, directory_path2, output_folder_name):
+    # Create the output folder if it doesn't exist
+    if not os.path.exists(output_folder_name):
+        os.makedirs(output_folder_name)
+    
+    # Iterate through the images in the directory and copy them to the output folder
+    """for filename in os.listdir(directory_path1):
+        file_path = os.path.join(directory_path1, filename)
+        if os.path.isfile(file_path):"""
+            #shutil.copy(file_path, os.path.join(output_folder_name, filename))
+    pass
+
+
 
 def main():
     #model = torch.load("trained_model_32_resize_moreTransformations_acc82.pth")
@@ -139,6 +153,9 @@ def main():
     # Create Saliency Folder
     if not os.path.exists(SALIENCY_FOLDER):
         os.makedirs(SALIENCY_FOLDER)
+    
+    if not os.path.exists(PREDICTION_FOLDER):
+        os.makedirs(PREDICTION_FOLDER)
 
     with st.sidebar:
         st.subheader("Your X-Rays")
@@ -146,6 +163,7 @@ def main():
                          accept_multiple_files=True,
                          type=ALLOWED_FILE_TYPES)
         process_button = st.button("Process")
+        download_button = st.button("Download All Files", disabled=False if process_button else True)
 
     # Check if the "Process" button is clicked
     if process_button:
@@ -153,6 +171,7 @@ def main():
             st.write("Number of X-Rays uploaded:", len(uploaded_files))
             print(uploaded_files)
             # Iterate through the uploaded files and display images in rows
+            counter_4_predictions = 0
             for i in range(0, len(uploaded_files), IMAGES_PER_ROW):
                 row_files = uploaded_files[i:i+IMAGES_PER_ROW]
                 
@@ -176,6 +195,12 @@ def main():
 
                     #print(image_to_pred.size())
                     prediction, label, probability_majority_class = predict_image(model=model, image_rgb=image_rgb_to_pred)
+                    probability_rounded = round(probability_majority_class*100, 2)
+                    file_path_predictions = os.path.join(PREDICTION_FOLDER, f"{counter_4_predictions}_{probability_rounded}%_{label}")
+                    with open(file_path_predictions, "wb") as f_predictions:
+                        #f_predictions.write()
+                        counter_4_predictions += 1
+
                     # Calculate the saliency map for the current image
                     #saliency_map = calculate_saliency_map(image_rgb_to_pred, model)
                     print(f"({i}) Label: {label}, Probability: {probability_majority_class*100:.2f}%")
@@ -209,9 +234,12 @@ def main():
                 
         else:
             st.write("No X-Rays uploaded.")
+    if download_button:
+        output_folder_name = st.text_input("Enter output folder name:", "downloaded_images")
 
 if __name__ == "__main__":
     empty_folder(UPLOAD_FOLDER)
     empty_folder(SALIENCY_FOLDER)
+    empty_folder(PREDICTION_FOLDER)
     main()
     
