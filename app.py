@@ -22,6 +22,8 @@ from CustomCNN import CNNModel
 import numpy as np
 import matplotlib.pyplot as plt
 import re
+import zipfile
+
 
 ALLOWED_FILE_TYPES = ["png", "jpg", "jpeg"]
 IMAGES_PER_ROW = 4
@@ -179,13 +181,25 @@ def merge_xray_saliency_prediction(x_ray_filename:str,
     # Save the merged image with the title as a new JPEG file
     merged_image.save(f"{download_directory}{x_ray_filename}_Results.jpg")
 
+
+
+def create_zip_archive(folder_path, zip_filename="results.zip"):
+    with zipfile.ZipFile(zip_filename, 'w', zipfile.ZIP_DEFLATED) as zipf:
+        for root, _, files in os.walk(folder_path):
+            for file in files:
+                file_path = os.path.join(root, file)
+                arcname = os.path.relpath(file_path, folder_path)
+                zipf.write(file_path, arcname)
+
 def trigger_download():
     #output_folder_name = st.text_input("Enter output folder name:", "downloaded_images")
     for idx, filename in enumerate(os.listdir(UPLOAD_FOLDER)):
         merge_xray_saliency_prediction(x_ray_filename=filename,
                                     saliency_filename=os.listdir(SALIENCY_FOLDER)[idx],
                                     prediction_filename=os.listdir(PREDICTION_FOLDER)[idx])
-
+    create_zip_archive(folder_path="./results")
+    st.write("The Results were <span style='color:green;'>SUCCESSFULLY</span> Downloaded !", unsafe_allow_html=True)
+    uploaded_files=[]
 
 def main():
     #model = torch.load("trained_model_32_resize_moreTransformations_acc82.pth")
@@ -217,8 +231,8 @@ def main():
                          accept_multiple_files=True,
                          type=ALLOWED_FILE_TYPES)
         process_button = st.button("Process")
-        download_button = st.button("Download All Files", disabled=False if process_button else True,
-                                    on_click=trigger_download)
+        download_button = st.download_button(label="Download All Files", disabled=False if process_button else True,
+                                    on_click=trigger_download, data="results.zip")
 
     # Check if the "Process" button is clicked
     if process_button:
@@ -288,6 +302,7 @@ def main():
                 
         else:
             st.write("No X-Rays uploaded.")
+        
     
 
 if __name__ == "__main__":
@@ -296,5 +311,3 @@ if __name__ == "__main__":
     empty_folder(PREDICTION_FOLDER)
     #empty_folder(RESULTS_FOLDER)
     main()
-    #if download_images:
-    #    trigger_download()
