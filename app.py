@@ -6,7 +6,7 @@ from torchvision.datasets import ImageFolder
 from random import shuffle
 from typing import Callable
 import cv2
-from PIL import Image
+from PIL import Image, ImageDraw, ImageFont
 from torchsummary import summary
 from torchviz import make_dot
 import graphviz
@@ -21,6 +21,7 @@ from io import BytesIO
 from CustomCNN import CNNModel
 import numpy as np
 import matplotlib.pyplot as plt
+import re
 
 ALLOWED_FILE_TYPES = ["png", "jpg", "jpeg"]
 IMAGES_PER_ROW = 4
@@ -29,6 +30,7 @@ IMAGE_SIZE=180
 UPLOAD_FOLDER = "uploaded_images"
 SALIENCY_FOLDER = "saliency_images"
 PREDICTION_FOLDER = "prediction_images"
+RESULTS_FOLDER = "results"
 
 def empty_folder(folder_path):
     for filename in os.listdir(folder_path):
@@ -63,11 +65,6 @@ def predict_image(model, image_rgb):
         outputs = model(transformed_image)
         softmax = nn.Softmax(dim=1)
         softmax_outputs = softmax(outputs)
-        #print(softmax_outputs)
-        #_, prediction = torch.max(softmax_outputs, 1)
-        #softmax = nn.Softmax(dim=1)
-        #softmax_outputs = softmax(prob)
-        #print(softmax_outputs)
         _, prediction = torch.max(softmax_outputs, 1)
         if prediction.item() == 0:
             label = "NORMAL"
@@ -119,18 +116,75 @@ def calculate_saliency(model, img_path: str, filename:str):
     return saliency[0]
 
 
-def download_images(directory_path1, directory_path2, output_folder_name):
+def download_images(output_folder_name:str,
+                    images_path="uploaded_images/", 
+                    saliency_path="saliency_images/",
+                    predictions_images="prediction_images/"):
     # Create the output folder if it doesn't exist
     if not os.path.exists(output_folder_name):
         os.makedirs(output_folder_name)
     
     # Iterate through the images in the directory and copy them to the output folder
-    """for filename in os.listdir(directory_path1):
-        file_path = os.path.join(directory_path1, filename)
-        if os.path.isfile(file_path):"""
-            #shutil.copy(file_path, os.path.join(output_folder_name, filename))
+    for idx, filename in os.listdir(images_path):
+        pass
     pass
 
+
+def merge_xray_saliency_prediction(x_ray_filename:str, 
+                                   saliency_filename:str, 
+                                   prediction_filename:str, 
+                                   download_directory="results/",
+                                   x_ray_directory=UPLOAD_FOLDER+"/",
+                                   saliency_directory=SALIENCY_FOLDER+"/",
+                                   prediction_directory=PREDICTION_FOLDER+"/",
+                                   size=350):
+    # Open the two JPEG images
+    image_xray = Image.open(x_ray_directory + x_ray_filename).resize((size, size))
+    image_saliency = Image.open(saliency_directory + saliency_filename).resize((size, size))
+    title = prediction_filename
+    # Get the dimensions of the images
+    width1, height1 = image_xray.size
+    width2, height2 = image_saliency.size
+
+    # Calculate the width and height of the merged image
+    merged_width = width1 + width2
+    merged_height = max(height1, height2) + 50  # Increase height to accommodate title
+
+    # Create a new blank image with the calculated dimensions
+    merged_image = Image.new("RGB", (merged_width, merged_height))
+
+    # Paste the first image on the left side of the merged image
+    merged_image.paste(image_xray, (0, 0))
+
+    # Paste the second image on the right side of the merged image
+    merged_image.paste(image_saliency, (width1, 0))
+
+    # Draw the title text at the bottom middle of the merged image
+    #title = prediction
+
+    pattern = r'(\d+\.\d+)%_(\w+)'
+
+    matches = re.search(pattern, prediction_directory + prediction_filename)
+    if matches:
+        percentage = matches.group(1) + "%"
+        label = matches.group(2)
+    title = percentage + " " + label
+    draw = ImageDraw.Draw(merged_image)
+    font = ImageFont.truetype("arial.ttf", 25)  # Load a suitable font
+    text_width, text_height = draw.textsize(title, font=font)
+    text_x = (merged_width - text_width) // 2
+    text_y = merged_height - text_height - 10  # Position above the bottom edge
+    draw.text((text_x, text_y), title, font=font, fill=(255, 255, 255))  # Fill with white color
+
+    # Save the merged image with the title as a new JPEG file
+    merged_image.save(f"{download_directory}{x_ray_filename}_Results.jpg")
+
+def trigger_download():
+    #output_folder_name = st.text_input("Enter output folder name:", "downloaded_images")
+    for idx, filename in enumerate(os.listdir(UPLOAD_FOLDER)):
+        merge_xray_saliency_prediction(x_ray_filename=filename,
+                                    saliency_filename=os.listdir(SALIENCY_FOLDER)[idx],
+                                    prediction_filename=os.listdir(PREDICTION_FOLDER)[idx])
 
 
 def main():
@@ -163,7 +217,8 @@ def main():
                          accept_multiple_files=True,
                          type=ALLOWED_FILE_TYPES)
         process_button = st.button("Process")
-        download_button = st.button("Download All Files", disabled=False if process_button else True)
+        download_button = st.button("Download All Files", disabled=False if process_button else True,
+                                    on_click=trigger_download)
 
     # Check if the "Process" button is clicked
     if process_button:
@@ -215,7 +270,6 @@ def main():
                         image_data_saliency = f_saliency.read()
                     image_base64_saliency = base64.b64encode(image_data_saliency).decode("utf-8")
                     
-
                     # Create a container div for each image and its prediction
                     row_html += f'<div style="display: inline-block; width: {IMAGE_SCREEN_PERCENTAGE}%; text-align: center; margin: 5px;">'
 
@@ -234,12 +288,13 @@ def main():
                 
         else:
             st.write("No X-Rays uploaded.")
-    if download_button:
-        output_folder_name = st.text_input("Enter output folder name:", "downloaded_images")
+    
 
 if __name__ == "__main__":
     empty_folder(UPLOAD_FOLDER)
     empty_folder(SALIENCY_FOLDER)
     empty_folder(PREDICTION_FOLDER)
+    #empty_folder(RESULTS_FOLDER)
     main()
-    
+    #if download_images:
+    #    trigger_download()
